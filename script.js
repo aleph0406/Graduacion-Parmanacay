@@ -1,319 +1,413 @@
 /**
- * Invitación de Graduación - Lógica Interactiva
- * Colores: Vino, Blanco Hueso, Dorado
+ * Invitación de Graduación
+ * Secuencia: preloader -> video -> portada -> invitación + música
  */
+(() => {
+    "use strict";
 
-document.addEventListener('DOMContentLoaded', () => {
-    initSparkles();
-    initCountdown();
-    setupEventListeners();
-});
+    const GRADUATION_DATE = "2026-07-28T08:30:00-04:00";
+    const PAGE_COUNT = 3;
 
-// Desvanecer el Preloader cuando todo esté cargado
-window.addEventListener('load', () => {
-    const loader = document.getElementById('loader');
-    if (loader) {
-        setTimeout(() => {
-            loader.style.opacity = '0';
-            setTimeout(() => {
-                loader.classList.add('hidden');
-                // Al quitar el cargador, el video de fondo ya se estará reproduciendo
-                playVideoSafe();
-            }, 800);
-        }, 600);
-    }
-});
+    let elements = {};
+    let pageFlipInstance = null;
+    let fallbackPageIndex = 0;
+    let isAudioPlaying = false;
+    let videoSequenceFinished = false;
+    let invitationOpened = false;
 
-/* ==========================================================================
-   1. Partículas Brillantes (Sparkles)
-   ========================================================================== */
-function initSparkles() {
-    const container = document.getElementById('sparkles-container');
-    if (!container) return;
+    document.addEventListener("DOMContentLoaded", init);
 
-    const sparkleCount = 60;
-    for (let i = 0; i < sparkleCount; i++) {
-        createSparkle(container, true);
-    }
-}
+    function init() {
+        elements = {
+            body: document.body,
+            loader: document.getElementById("loader"),
+            videoOverlay: document.getElementById("video-overlay"),
+            introVideo: document.getElementById("intro-video"),
+            skipVideoBtn: document.getElementById("skip-video-btn"),
+            initialPopup: document.getElementById("initial-popup"),
+            entryBtn: document.getElementById("entry-btn"),
+            invitationContainer: document.getElementById("invitation-container"),
+            footerControls: document.getElementById("footer-controls"),
+            audio: document.getElementById("bg-audio"),
+            musicToggle: document.getElementById("music-toggle"),
+            musicIcon: document.getElementById("music-icon"),
+            musicStatus: document.getElementById("music-status"),
+            flipContainer: document.getElementById("magazine-flipbook"),
+            prevBtn: document.getElementById("prev-page"),
+            nextBtn: document.getElementById("next-page")
+        };
 
-function createSparkle(container, initial = false) {
-    const sparkle = document.createElement('div');
-    sparkle.className = 'sparkle';
+        initSparkles();
+        initCountdown();
+        bindEvents();
 
-    const size = Math.random() * 5 + 2; // de 2px a 7px
-    const duration = Math.random() * 5 + 5; // de 5s a 10s
-    const delay = Math.random() * 5; // hasta 5s de retraso
+        // Se intenta reproducir inmediatamente; el video está silenciado para
+        // cumplir las políticas de reproducción automática de los navegadores.
+        playVideoSafely();
 
-    sparkle.style.width = `${size}px`;
-    sparkle.style.height = `${size}px`;
-    sparkle.style.left = `${Math.random() * 100}%`;
-    
-    if (initial) {
-        // En la carga inicial, distribuir verticalmente para evitar que todas salgan del fondo a la vez
-        sparkle.style.top = `${Math.random() * 100}%`;
-    } else {
-        sparkle.style.top = '100%';
+        // Respaldo: el loader nunca debe quedarse bloqueando la interfaz.
+        window.setTimeout(hideLoader, 3000);
     }
 
-    sparkle.style.animationDuration = `${duration}s`;
-    sparkle.style.animationDelay = `${delay}s`;
+    window.addEventListener("load", () => {
+        window.setTimeout(hideLoader, 450);
+    });
 
-    container.appendChild(sparkle);
+    function hideLoader() {
+        const { loader } = elements;
+        if (!loader || loader.classList.contains("hidden")) return;
 
-    // Remover y recrear una nueva partícula al terminar su animación
-    setTimeout(() => {
-        sparkle.remove();
-        createSparkle(container, false);
-    }, (duration + delay) * 1000);
-}
+        loader.classList.add("hidden");
+        loader.setAttribute("aria-hidden", "true");
 
-/* ==========================================================================
-   2. Temporizador Cuenta Regresiva (28 de Julio de 2026, 8:30 AM)
-   ========================================================================== */
-function initCountdown() {
-    // 28 de Julio de 2026 a las 08:30:00 (Mes es 0-indexed, Julio = 6)
-    const targetDate = new Date(2026, 6, 28, 8, 30, 0).getTime();
+        // Se elimina por completo después de la transición. Esta corrección
+        // evita que una capa transparente bloquee "Saltar intro" y la portada.
+        window.setTimeout(() => loader.remove(), 750);
+    }
 
-    const timer = setInterval(() => {
-        const now = new Date().getTime();
-        const difference = targetDate - now;
+    function bindEvents() {
+        const {
+            introVideo,
+            skipVideoBtn,
+            entryBtn,
+            musicToggle,
+            prevBtn,
+            nextBtn,
+            flipContainer
+        } = elements;
 
-        const daysVal = document.getElementById('days');
-        const hoursVal = document.getElementById('hours');
-        const minutesVal = document.getElementById('minutes');
-        const secondsVal = document.getElementById('seconds');
-        const countdownTimerEl = document.getElementById('countdown-timer');
+        introVideo?.addEventListener("ended", finishVideoSequence);
+        introVideo?.addEventListener("error", finishVideoSequence);
+        skipVideoBtn?.addEventListener("click", finishVideoSequence);
+        entryBtn?.addEventListener("click", openInvitation);
+        musicToggle?.addEventListener("click", toggleAudio);
+        elements.audio?.addEventListener("playing", () => setAudioState(true));
+        elements.audio?.addEventListener("pause", () => setAudioState(false));
+        elements.audio?.addEventListener("ended", () => setAudioState(false));
+        elements.audio?.addEventListener("error", handleAudioError);
+        prevBtn?.addEventListener("click", showPreviousPage);
+        nextBtn?.addEventListener("click", showNextPage);
 
-        if (difference < 0) {
-            clearInterval(timer);
-            if (countdownTimerEl) {
-                countdownTimerEl.innerHTML = "<div class='time-block' style='grid-column: 1 / -1; width: 100%;'><span style='font-size: 2.2rem;'>¡LLEGÓ EL GRAN DÍA!</span></div>";
+        // En el modo alternativo, tocar la tarjeta avanza una página.
+        flipContainer?.addEventListener("click", () => {
+            if (!flipContainer.classList.contains("fallback-mode")) return;
+            showNextPage();
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (!invitationOpened) return;
+            if (event.key === "ArrowLeft") showPreviousPage();
+            if (event.key === "ArrowRight") showNextPage();
+        });
+    }
+
+    async function playVideoSafely() {
+        const { introVideo } = elements;
+        if (!introVideo || videoSequenceFinished) return;
+
+        try {
+            await introVideo.play();
+        } catch (error) {
+            // Algunos navegadores pueden bloquear incluso un video silenciado.
+            // El botón de salto continúa disponible para avanzar.
+            console.info("El navegador bloqueó la reproducción automática del video.", error);
+        }
+    }
+
+    function finishVideoSequence() {
+        if (videoSequenceFinished) return;
+        videoSequenceFinished = true;
+
+        const { introVideo, videoOverlay, initialPopup } = elements;
+
+        if (introVideo) {
+            introVideo.pause();
+        }
+
+        hideLayer(videoOverlay);
+        showLayer(initialPopup);
+    }
+
+    function openInvitation() {
+        if (invitationOpened) return;
+        invitationOpened = true;
+
+        const {
+            body,
+            initialPopup,
+            invitationContainer,
+            footerControls
+        } = elements;
+
+        hideLayer(initialPopup);
+        revealContent(invitationContainer);
+        revealContent(footerControls);
+        body?.classList.remove("is-locked");
+
+        // Este clic del usuario permite iniciar la música legalmente en móvil.
+        startAudio();
+
+        // Dos frames garantizan que el contenedor ya tenga dimensiones reales.
+        requestAnimationFrame(() => {
+            requestAnimationFrame(initFlipbook);
+        });
+    }
+
+    function hideLayer(element) {
+        if (!element) return;
+        element.classList.add("hidden");
+        element.setAttribute("aria-hidden", "true");
+    }
+
+    function showLayer(element) {
+        if (!element) return;
+        element.classList.remove("hidden");
+        element.setAttribute("aria-hidden", "false");
+    }
+
+    function revealContent(element) {
+        if (!element) return;
+        element.classList.remove("hidden");
+        element.setAttribute("aria-hidden", "false");
+    }
+
+    async function startAudio() {
+        const { audio } = elements;
+        if (!audio) return;
+
+        try {
+            audio.muted = false;
+            audio.volume = 0.85;
+
+            if (audio.networkState === HTMLMediaElement.NETWORK_EMPTY) {
+                audio.load();
+            }
+
+            await audio.play();
+            setAudioState(true);
+        } catch (error) {
+            setAudioState(false);
+            console.info("No se pudo iniciar la melodía automáticamente. Usa el botón para reintentar.", error);
+        }
+    }
+
+    async function toggleAudio() {
+        const { audio } = elements;
+        if (!audio) return;
+
+        if (!audio.paused && !audio.ended) {
+            audio.pause();
+            return;
+        }
+
+        await startAudio();
+    }
+
+    function handleAudioError() {
+        const { audio, musicStatus } = elements;
+        setAudioState(false);
+
+        if (musicStatus) {
+            musicStatus.textContent = "Reintentar melodía";
+        }
+
+        console.error(
+            "No se encontró o no se pudo cargar la melodía. Verifica que el archivo esté junto a index.html y conserve uno de los nombres configurados.",
+            audio?.error
+        );
+    }
+
+    function setAudioState(isPlaying) {
+        const { musicToggle, musicIcon, musicStatus } = elements;
+        isAudioPlaying = isPlaying;
+
+        musicToggle?.setAttribute("aria-pressed", String(isPlaying));
+        if (musicIcon) musicIcon.textContent = isPlaying ? "🔊" : "🎵";
+        if (musicStatus) musicStatus.textContent = isPlaying ? "Pausar melodía" : "Escuchar melodía";
+    }
+
+    function initFlipbook() {
+        const { flipContainer } = elements;
+        if (!flipContainer || pageFlipInstance || flipContainer.classList.contains("fallback-mode")) return;
+
+        const pages = Array.from(flipContainer.querySelectorAll(".page"));
+        if (!pages.length) return;
+
+        try {
+            if (!window.St?.PageFlip) {
+                throw new Error("La biblioteca PageFlip no está disponible.");
+            }
+
+            pageFlipInstance = new window.St.PageFlip(flipContainer, {
+                width: 430,
+                height: 645,
+                size: "stretch",
+                minWidth: 280,
+                maxWidth: 520,
+                minHeight: 420,
+                maxHeight: 780,
+                autoSize: true,
+                drawShadow: true,
+                maxShadowOpacity: 0.48,
+                showCover: true,
+                usePortrait: true,
+                mobileScrollSupport: false,
+                useMouseEvents: true,
+                clickEventForward: true,
+                flippingTime: 850,
+                showPageCorners: true,
+                disableFlipByClick: false
+            });
+
+            pageFlipInstance.loadFromHTML(pages);
+            pageFlipInstance.on("flip", updateNavigationState);
+            updateNavigationState();
+        } catch (error) {
+            console.warn("Se activó el modo alternativo de páginas.", error);
+            initFallbackPages();
+        }
+    }
+
+    function initFallbackPages() {
+        const { flipContainer } = elements;
+        if (!flipContainer) return;
+
+        flipContainer.classList.add("fallback-mode");
+        fallbackPageIndex = 0;
+        renderFallbackPage();
+    }
+
+    function showPreviousPage() {
+        if (pageFlipInstance) {
+            pageFlipInstance.flipPrev();
+            return;
+        }
+
+        if (!elements.flipContainer?.classList.contains("fallback-mode")) return;
+        fallbackPageIndex = Math.max(0, fallbackPageIndex - 1);
+        renderFallbackPage();
+    }
+
+    function showNextPage() {
+        if (pageFlipInstance) {
+            const currentPage = pageFlipInstance.getCurrentPageIndex();
+            if (currentPage >= PAGE_COUNT - 1) {
+                if (typeof pageFlipInstance.turnToPage === "function") {
+                    pageFlipInstance.turnToPage(0);
+                } else {
+                    pageFlipInstance.flip(0);
+                }
+            } else {
+                pageFlipInstance.flipNext();
             }
             return;
         }
 
-        const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-        if (daysVal) daysVal.innerText = String(days).padStart(2, '0');
-        if (hoursVal) hoursVal.innerText = String(hours).padStart(2, '0');
-        if (minutesVal) minutesVal.innerText = String(minutes).padStart(2, '0');
-        if (secondsVal) secondsVal.innerText = String(seconds).padStart(2, '0');
-
-    }, 1000);
-}
-
-/* ==========================================================================
-   3. Manejo de Eventos y Secuencia Interactiva
-   ========================================================================== */
-const audio = document.getElementById('bg-audio');
-const introVideo = document.getElementById('intro-video');
-let isAudioPlaying = false;
-
-function playVideoSafe() {
-    if (!introVideo) return;
-    introVideo.play().catch(err => {
-        console.log("El video autoplay fue bloqueado o pausado. Esperando clic del usuario.");
-    });
-}
-
-function setupEventListeners() {
-    const entryBtn = document.getElementById('entry-btn');
-    const skipVideoBtn = document.getElementById('skip-video-btn');
-    
-    const initialPopup = document.getElementById('initial-popup');
-    const videoOverlay = document.getElementById('video-overlay');
-    const invitationContainer = document.getElementById('invitation-container');
-    const footerControls = document.getElementById('footer-controls');
-    const whatsappFloat = document.getElementById('whatsapp-float');
-    
-    const musicToggle = document.getElementById('music-toggle');
-    const musicIcon = document.getElementById('music-icon');
-    const musicStatus = document.getElementById('music-status');
-
-    // 1. Al terminar el video o darle a Saltar Video
-    const finishVideoSequence = () => {
-        if (introVideo) {
-            introVideo.pause();
-        }
-        videoOverlay.classList.add('hidden');
-        
-        // Revelamos el popup de la portada que tiene "Haz Click Aquí"
-        initialPopup.classList.remove('hidden');
-    };
-
-    if (introVideo) {
-        introVideo.addEventListener('ended', finishVideoSequence);
-    }
-    
-    if (skipVideoBtn) {
-        skipVideoBtn.addEventListener('click', finishVideoSequence);
+        if (!elements.flipContainer?.classList.contains("fallback-mode")) return;
+        fallbackPageIndex = (fallbackPageIndex + 1) % PAGE_COUNT;
+        renderFallbackPage();
     }
 
-    // 2. Al hacer clic en la portada (Haz Click Aquí)
-    if (entryBtn) {
-        entryBtn.addEventListener('click', () => {
-            // Ocultamos el popup
-            initialPopup.classList.add('hidden');
-            
-            // Mostramos los contenedores de la invitación y controles
-            invitationContainer.classList.remove('hidden');
-            footerControls.classList.remove('hidden');
-            whatsappFloat.classList.remove('hidden');
-
-            // Intentamos reproducir el audio de fondo de inmediato
-            if (audio) {
-                audio.play()
-                    .then(() => {
-                        isAudioPlaying = true;
-                        if (musicIcon) musicIcon.innerText = '🔊';
-                        if (musicStatus) musicStatus.innerText = 'Pausar Melodía';
-                    })
-                    .catch(err => {
-                        console.log("La reproducción de audio fue bloqueada por el navegador:", err);
-                    });
-            }
-
-            // Inicializamos el Flipbook tras un breve retraso para que tenga dimensiones físicas en el DOM
-            setTimeout(() => {
-                initFlipbook();
-                
-                // Volteamos automáticamente a la primera página de contenido (1.webp)
-                if (pageFlipInstance) {
-                    pageFlipInstance.flip(1);
-                }
-            }, 150);
-        });
-    }
-
-    // 3. Control de Pausa/Reproducción de Música
-    if (musicToggle) {
-        musicToggle.addEventListener('click', () => {
-            if (!audio) return;
-            
-            if (isAudioPlaying) {
-                audio.pause();
-                isAudioPlaying = false;
-                if (musicIcon) musicIcon.innerText = '🔇';
-                if (musicStatus) musicStatus.innerText = 'Escuchar Melodía';
-            } else {
-                audio.play()
-                    .then(() => {
-                        isAudioPlaying = true;
-                        if (musicIcon) musicIcon.innerText = '🔊';
-                        if (musicStatus) musicStatus.innerText = 'Pausar Melodía';
-                    })
-                    .catch(err => {
-                        console.error("Error al reproducir audio:", err);
-                    });
-            }
-        });
-    }
-}
-
-/* ==========================================================================
-   4. Configuración e Inicialización de PageFlip
-   ========================================================================== */
-let pageFlipInstance = null;
-
-function initFlipbook() {
-    console.log("Iniciando Flipbook...");
-    const flipContainer = document.getElementById('magazine-flipbook');
-    if (!flipContainer) {
-        console.error("Contenedor #magazine-flipbook no encontrado en el DOM");
-        return;
-    }
-    if (pageFlipInstance) {
-        console.log("El flipbook ya está inicializado");
-        return;
-    }
-
-    // Detectamos dispositivo móvil para ajustar la visualización
-    const isMobile = window.innerWidth <= 768;
-    console.log("Modo móvil detectado:", isMobile);
-
-    try {
-        if (typeof St === "undefined" || !St.PageFlip) {
-            throw new Error("La biblioteca PageFlip (St.PageFlip) no se ha cargado correctamente.");
-        }
-
-        pageFlipInstance = new St.PageFlip(flipContainer, {
-            width: 400,
-            height: 600,
-            size: "stretch",
-            minWidth: 280,
-            maxWidth: 500,
-            minHeight: 420,
-            maxHeight: 750,
-            maxShadowOpacity: 0.5,
-            showCover: true,
-            mobileScrollSupport: true,
-            useMouseEvents: true,
-            flippingTime: 900,
-            showPageCorners: true,
-            // En móvil mostramos de a una página (retrato), en escritorio doble página (paisaje)
-            orientation: isMobile ? "portrait" : "landscape"
-        });
-
-        const pages = document.querySelectorAll('.page');
-        console.log("Cantidad de páginas encontradas:", pages.length);
-        pageFlipInstance.loadFromHTML(pages);
-        console.log("Flipbook inicializado exitosamente");
-    } catch (error) {
-        console.error("Error al inicializar St.PageFlip:", error);
-    }
-
-    // Hacer que hacer clic directo sobre una página pase a la siguiente usando delegación de eventos
-    flipContainer.addEventListener('click', (e) => {
-        const pageEl = e.target.closest('.page');
-        if (pageEl) {
-            const pagesArray = Array.from(flipContainer.querySelectorAll('.page'));
-            const pageIndex = pagesArray.indexOf(pageEl);
-            if (pageIndex !== -1) {
-                if (pageIndex === pagesArray.length - 1) {
-                    pageFlipInstance.flip(0); // Si es la última página (3.webp), vuelve al inicio
-                } else {
-                    pageFlipInstance.flipNext();
-                }
-            }
-        }
-    });
-
-    // Agregar estilo de cursor pointer a las páginas
-    pages.forEach(page => {
-        page.style.cursor = 'pointer';
-    });
-
-    // Ajustar orientación en cambios de tamaño de pantalla
-    window.addEventListener('resize', () => {
+    function updateNavigationState() {
+        const { prevBtn, nextBtn } = elements;
         if (!pageFlipInstance) return;
-        
-        const currentlyMobile = window.innerWidth <= 768;
-        const newOrientation = currentlyMobile ? "portrait" : "landscape";
-        
-        if (pageFlipInstance.getOrientation() !== newOrientation) {
-            pageFlipInstance.update({
-                orientation: newOrientation
-            });
+
+        const currentPage = pageFlipInstance.getCurrentPageIndex();
+        if (prevBtn) prevBtn.disabled = currentPage <= 0;
+        if (nextBtn) {
+            nextBtn.disabled = false;
+            nextBtn.setAttribute(
+                "aria-label",
+                currentPage >= PAGE_COUNT - 1 ? "Volver a la primera página" : "Ir a la página siguiente"
+            );
         }
-    });
-
-    // Eventos de botones
-    const prevBtn = document.getElementById('prev-page');
-    const nextBtn = document.getElementById('next-page');
-
-    if (prevBtn) {
-        prevBtn.addEventListener('click', () => {
-            pageFlipInstance.flipPrev();
-        });
     }
 
-    if (nextBtn) {
-        nextBtn.addEventListener('click', () => {
-            pageFlipInstance.flipNext();
+    function renderFallbackPage() {
+        const { flipContainer, prevBtn, nextBtn } = elements;
+        const pages = Array.from(flipContainer?.querySelectorAll(".page") || []);
+
+        pages.forEach((page, index) => {
+            page.classList.toggle("is-active", index === fallbackPageIndex);
+            page.setAttribute("aria-hidden", String(index !== fallbackPageIndex));
         });
+
+        if (prevBtn) prevBtn.disabled = fallbackPageIndex === 0;
+        if (nextBtn) {
+            nextBtn.disabled = false;
+            nextBtn.setAttribute(
+                "aria-label",
+                fallbackPageIndex === pages.length - 1 ? "Volver a la primera página" : "Ir a la página siguiente"
+            );
+        }
     }
-}
+
+    function initCountdown() {
+        const targetTime = new Date(GRADUATION_DATE).getTime();
+
+        const updateCountdown = () => {
+            const difference = targetTime - Date.now();
+            const timerElement = document.getElementById("countdown-timer");
+
+            if (!timerElement) return false;
+
+            if (difference <= 0) {
+                timerElement.innerHTML = '<p class="countdown-complete">¡Llegó el gran día!</p>';
+                return false;
+            }
+
+            const day = 1000 * 60 * 60 * 24;
+            const hour = 1000 * 60 * 60;
+            const minute = 1000 * 60;
+
+            setText("days", Math.floor(difference / day));
+            setText("hours", Math.floor((difference % day) / hour));
+            setText("minutes", Math.floor((difference % hour) / minute));
+            setText("seconds", Math.floor((difference % minute) / 1000));
+            return true;
+        };
+
+        updateCountdown();
+        const intervalId = window.setInterval(() => {
+            if (!updateCountdown()) window.clearInterval(intervalId);
+        }, 1000);
+    }
+
+    function setText(id, value) {
+        const element = document.getElementById(id);
+        if (element) element.textContent = String(value).padStart(2, "0");
+    }
+
+    function initSparkles() {
+        const container = document.getElementById("sparkles-container");
+        if (!container || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+        const sparkleCount = window.innerWidth <= 768 ? 28 : 52;
+        for (let index = 0; index < sparkleCount; index += 1) {
+            createSparkle(container, true);
+        }
+    }
+
+    function createSparkle(container, initial = false) {
+        if (!document.body.contains(container)) return;
+
+        const sparkle = document.createElement("span");
+        const size = Math.random() * 4 + 2;
+        const duration = Math.random() * 5 + 5;
+        const delay = Math.random() * 5;
+
+        sparkle.className = "sparkle";
+        sparkle.style.width = `${size}px`;
+        sparkle.style.height = `${size}px`;
+        sparkle.style.left = `${Math.random() * 100}%`;
+        sparkle.style.top = initial ? `${Math.random() * 100}%` : "100%";
+        sparkle.style.animationDuration = `${duration}s`;
+        sparkle.style.animationDelay = `${delay}s`;
+        container.appendChild(sparkle);
+
+        window.setTimeout(() => {
+            sparkle.remove();
+            createSparkle(container, false);
+        }, (duration + delay) * 1000);
+    }
+})();

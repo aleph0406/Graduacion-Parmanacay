@@ -1,151 +1,149 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#3a0505">
     <title>Invitación de Graduación</title>
-    <link rel="stylesheet" href="style.css">
-    
-    <!-- Google Fonts -->
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Montserrat:wght@300;400;600&family=Great+Vibes&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Great+Vibes&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
 </head>
-
-<body>
-    <!-- Preloader Elegante -->
-    <div id="loader">
+<body class="is-locked">
+    <!-- Preloader -->
+    <div id="loader" role="status" aria-live="polite">
         <div class="loader-content">
-            <svg class="grad-cap-loader" viewBox="0 0 100 100" width="80" height="80">
-                <path d="M50 20 L90 35 L50 50 L10 35 Z" fill="#c3a266" />
-                <path d="M25 41 L25 65 C25 75, 75 75, 75 65 L75 41" fill="none" stroke="#c3a266" stroke-width="5" stroke-linejoin="round" stroke-linecap="round" />
-                <path d="M80 38 L80 62 C80 64, 83 67, 83 72" fill="none" stroke="#c3a266" stroke-width="3" stroke-linecap="round" />
-                <circle cx="83" cy="74" r="3" fill="#c3a266" />
+            <svg class="grad-cap-loader" viewBox="0 0 100 100" width="80" height="80" aria-hidden="true">
+                <path d="M50 20 L90 35 L50 50 L10 35 Z" fill="#c3a266"></path>
+                <path d="M25 41 L25 65 C25 75, 75 75, 75 65 L75 41" fill="none" stroke="#c3a266" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"></path>
+                <path d="M80 38 L80 62 C80 64, 83 67, 83 72" fill="none" stroke="#c3a266" stroke-width="3" stroke-linecap="round"></path>
+                <circle cx="83" cy="74" r="3" fill="#c3a266"></circle>
             </svg>
-            <div class="loader-text">Cargando Invitación...</div>
-            <div class="loader-bar">
+            <p class="loader-text">Cargando invitación...</p>
+            <div class="loader-bar" aria-hidden="true">
                 <div class="loader-progress"></div>
             </div>
         </div>
     </div>
 
-    <!-- Contenedor de Partículas (Sparkles) -->
-    <div id="sparkles-container"></div>
+    <div id="sparkles-container" aria-hidden="true"></div>
 
-    <!-- 1. Video de Entrada (Pantalla Completa) -->
-    <div id="video-overlay" class="overlay">
+    <!-- 1. Video de entrada -->
+    <section id="video-overlay" class="overlay" aria-label="Introducción de la invitación">
         <div class="video-wrapper">
-            <video id="intro-video" playsinline muted autoplay>
+            <video id="intro-video" playsinline muted autoplay preload="auto">
                 <source src="LOGO.mp4" type="video/mp4">
                 Tu navegador no soporta el formato de video.
             </video>
-            <button id="skip-video-btn" class="skip-btn">Saltar Intro ✕</button>
-        </div>
-    </div>
 
-    <!-- 2. Popup de Portada Interactivo (Haz Click Aquí) -->
-    <div id="initial-popup" class="overlay hidden">
+            <button id="skip-video-btn" class="skip-btn" type="button">
+                Saltar intro <span aria-hidden="true">✕</span>
+            </button>
+        </div>
+    </section>
+
+    <!-- 2. Portada interactiva -->
+    <section id="initial-popup" class="overlay hidden" aria-hidden="true">
         <div class="popup-content">
-            <h2 class="popup-title">Haz Click Aquí</h2>
-            <div class="envelope-btn" id="entry-btn">
-                <img src="portada.webp" alt="Portada de Graduación" id="popup-img">
-                <div class="pulse-ring"></div>
-            </div>
-        </div>
-    </div>
+            <h1 class="popup-title">Haz clic aquí</h1>
 
-    <!-- 3. Contenedor Principal de la Invitación -->
-    <main id="invitation-container" class="hidden">
-        <div class="invitation-header">
-            <h1 class="main-title">Nuestra Graduación</h1>
+            <button id="entry-btn" class="envelope-btn" type="button" aria-label="Abrir invitación de graduación">
+                <img src="portada.webp" alt="Portada de la invitación de graduación" id="popup-img">
+                <span class="pulse-ring" aria-hidden="true"></span>
+            </button>
+        </div>
+    </section>
+
+    <!-- 3. Invitación -->
+    <main id="invitation-container" class="hidden" aria-hidden="true">
+        <header class="invitation-header">
+            <p class="eyebrow">Celebramos un logro inolvidable</p>
+            <h2 class="main-title">Nuestra Graduación</h2>
             <p class="subtitle">Estás cordialmente invitado</p>
-        </div>
+        </header>
 
-        <!-- Flipbook de Imágenes -->
-        <div id="magazine-flipbook" class="flipbook">
-            <!-- Portada en el Flipbook -->
-            <div class="page" data-density="hard">
-                <img src="portada.webp" alt="Portada">
+        <section class="book-section" aria-label="Tarjeta de invitación">
+            <div id="magazine-flipbook" class="flipbook">
+                <article class="page">
+                    <img src="1.webp" alt="Primera página de la invitación">
+                </article>
+                <article class="page">
+                    <img src="2.webp" alt="Segunda página de la invitación">
+                </article>
+                <article class="page">
+                    <a
+                        href="https://maps.app.goo.gl/8hZwtSAnwcJmq2M36"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="page-location-link"
+                        aria-label="Ver ubicación de la graduación en Google Maps"
+                    >
+                        <img src="3.webp" alt="Tercera página de la invitación con acceso a la ubicación">
+                    </a>
+                </article>
             </div>
-            <!-- Página 1 -->
-            <div class="page">
-                <img src="1.webp" alt="Página 1">
-            </div>
-            <!-- Página 2 -->
-            <div class="page">
-                <img src="2.webp" alt="Página 2">
-            </div>
-            <!-- Página 3 -->
-            <div class="page">
-                <img src="3.webp" alt="Página 3">
-            </div>
-        </div>
 
-        <!-- Controles de Navegación del Libro -->
-        <div class="magazine-controls">
-            <button id="prev-page" class="nav-btn">
-                <span class="btn-arrow">←</span> Anterior
-            </button>
-            <button id="next-page" class="nav-btn">
-                Siguiente <span class="btn-arrow">→</span>
-            </button>
-        </div>
+            <div class="magazine-controls" aria-label="Controles de la invitación">
+                <button id="prev-page" class="nav-btn" type="button">
+                    <span class="btn-arrow" aria-hidden="true">←</span> Anterior
+                </button>
+                <button id="next-page" class="nav-btn" type="button">
+                    Siguiente <span class="btn-arrow" aria-hidden="true">→</span>
+                </button>
+            </div>
+            <p class="page-help">Toca la tarjeta o utiliza los botones para continuar.</p>
+        </section>
     </main>
 
-    <!-- Controles de Audio y Cuenta Regresiva (Footer) -->
-    <footer id="footer-controls" class="hidden">
-        <!-- Música de Fondo -->
+    <!-- Música y cuenta regresiva -->
+    <footer id="footer-controls" class="hidden" aria-hidden="true">
         <div class="music-player">
-            <audio id="bg-audio" loop>
-                <source src="El Mejor Fondo Para Graduacion.mp3" type="audio/mp3">
+            <audio id="bg-audio" loop preload="auto">
+                <source src="./El%20Mejor%20Fondo%20Para%20Graduaci%C3%B3n.mp3" type="audio/mpeg">
+                <source src="./El%20Mejor%20Fondo%20Para%20Graduacion.mp3" type="audio/mpeg">
                 Tu navegador no soporta el elemento de audio.
             </audio>
-            <button id="music-toggle" class="music-btn">
-                <span id="music-icon">🎵</span>
-                <span id="music-status">Escuchar Melodía</span>
+
+            <button id="music-toggle" class="music-btn" type="button" aria-pressed="false">
+                <span id="music-icon" aria-hidden="true">🎵</span>
+                <span id="music-status">Escuchar melodía</span>
             </button>
         </div>
 
-        <!-- Cuenta Regresiva para el Gran Día -->
-        <div class="countdown-section">
-            <h3 class="countdown-title">FALTAN POCOS DÍAS</h3>
-            <div id="countdown-timer">
+        <section class="countdown-section" aria-label="Cuenta regresiva para la graduación">
+            <p class="event-date">28 de julio de 2026 · 8:30 a. m.</p>
+            <h2 class="countdown-title">Faltan pocos días</h2>
+
+            <div id="countdown-timer" aria-live="polite">
                 <div class="time-block">
                     <span id="days">00</span>
-                    <label>Días</label>
+                    <small>Días</small>
                 </div>
                 <div class="time-block">
                     <span id="hours">00</span>
-                    <label>Horas</label>
+                    <small>Horas</small>
                 </div>
                 <div class="time-block">
                     <span id="minutes">00</span>
-                    <label>Min</label>
+                    <small>Min</small>
                 </div>
                 <div class="time-block">
                     <span id="seconds">00</span>
-                    <label>Seg</label>
+                    <small>Seg</small>
                 </div>
             </div>
+
             <p class="punctual-notice">Se agradece puntualidad</p>
-        </div>
+        </section>
     </footer>
 
-    <!-- Botón Flotante de WhatsApp para Confirmación -->
-    <div id="whatsapp-float" class="wa-float hidden">
-        <div class="wa-tooltip">Confirma tu asistencia aquí:</div>
-        <a href="https://api.whatsapp.com/send?phone=584124823149&text=Hola,%20confirmo%20mi%20asistencia%20a%20la%20Graduaci%C3%B3n."
-            target="_blank" class="wa-link" rel="noopener noreferrer" aria-label="Confirmar asistencia por WhatsApp">
-            <svg viewBox="0 0 24 24" class="wa-svg">
-                <path d="M19.05 4.91A9.816 9.816 0 0 0 12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01zm-7.01 15.24c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.216 8.216 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24 2.2 0 4.27.86 5.82 2.42 1.56 1.56 2.41 3.63 2.41 5.82 0 4.54-3.7 8.24-8.24 8.24zm4.52-6.16c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.12-.17.25-.66.81-.81.99-.15.17-.31.2-.56.07-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.15-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.17-.23.25-.39.08-.17.04-.31-.02-.43s-.56-1.34-.76-1.84c-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.07-.66.31-.22.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.14-1.18s-.22-.16-.47-.28z" />
-            </svg>
-        </a>
-    </div>
+    <noscript>
+        <p class="noscript-message">Activa JavaScript para visualizar la invitación interactiva.</p>
+    </noscript>
 
-    <!-- Bibliotecas externas locales -->
-    <script src="page-flip.browser.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
     <script src="script.js"></script>
 </body>
-
 </html>
